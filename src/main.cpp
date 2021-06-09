@@ -1,44 +1,21 @@
 #include <Arduino.h>
+#include "AnalogPulseCounter.h"
 
-int pin = 34;
 unsigned long interval = 1000;
-unsigned long previousMillis, currentMillis, pulseCount;
+unsigned long previousMillis, currentMillis, elapsedT;
 float windSpeed;
-
-TaskHandle_t Task1;
-
-void countPulses(void *parameter)
-{
-  for (;;)
-  {
-    if (analogRead(pin) != 0)
-    {
-      pulseCount++;
-    }
-    delay(20);
-  }
-}
 
 void setup()
 {
   Serial.begin(115200);
-  Serial.print("setup() running on core ");
-  Serial.println(xPortGetCoreID());
-  xTaskCreatePinnedToCore(
-      countPulses, /* Function to implement the task */
-      "Task1",     /* Name of the task */
-      10000,       /* Stack size in words */
-      NULL,        /* Task input parameter */
-      0,           /* Priority of the task */
-      &Task1,      /* Task handle. */
-      0);          /* Core where the task should run */
+  startPulseCounter(); // Runs on second core
 }
 
-float calcWindSpeed()
+float calcWindSpeed(unsigned long pulses, unsigned long elapsedT)
 {
-  if (pulseCount != 0)
+  if (pulses != 0)
   {
-    return 0.706 * ((pulseCount * 1000.0 / (currentMillis - previousMillis))) + 0.324;
+    return 0.706 * ((pulses * 1000.0 / (elapsedT))) + 0.324;
   }
   return 0.0;
 }
@@ -46,11 +23,12 @@ float calcWindSpeed()
 void loop()
 {
   currentMillis = millis();
-  if (currentMillis - previousMillis >= interval)
+  elapsedT = currentMillis - previousMillis;
+  if (elapsedT >= interval)
   {
     Serial.print("pulseCount: \t");
     Serial.println(pulseCount);
-    windSpeed = calcWindSpeed();
+    windSpeed = calcWindSpeed(pulseCount, elapsedT);
     previousMillis = currentMillis;
     pulseCount = 0;
 
